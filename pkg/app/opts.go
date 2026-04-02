@@ -32,11 +32,15 @@ type DataDirectories struct {
 
 // RTMPOpts - options for RTMP streaming
 type RTMPOpts struct {
-	// IP:Port of the interface on which we should listen
+	// IP:Port of the interface on which we should listen for the camera (publisher)
 	ListenAddr string
 
 	// IP:Port under which can Cam reach the RTMP server
 	PublicAddr string
+
+	// IP:Port on which to listen for subscriber (client) connections.
+	// If empty, subscribers connect on the same port as the publisher.
+	SubscriberListenAddr string
 }
 
 type EventPollingOpts struct {

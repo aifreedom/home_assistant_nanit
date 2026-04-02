@@ -56,7 +56,7 @@ func (app *App) Run(ctx utils.GracefulContext) {
 
 	// RTMP
 	if app.Opts.RTMP != nil {
-		go rtmpserver.StartRTMPServer(app.Opts.RTMP.ListenAddr, app.BabyStateManager)
+		go rtmpserver.StartRTMPServer(app.Opts.RTMP.ListenAddr, app.Opts.RTMP.SubscriberListenAddr, app.BabyStateManager)
 	}
 
 	// MQTT

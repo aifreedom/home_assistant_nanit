@@ -43,7 +43,51 @@ docker run \
 
 If this is your initial run, you may want to omit the `-d` flag so you can observe the output to find your `baby_uid` (which will be needed later if you plan on connecting anything to the feed, like Home Assistant). After getting the baby id (which won't change) you can stop the container and restart it with the `-d` flag.
 
-As a note, the NANIT_RTMP_ADDR should be the local ip address of your docker environment, NOT the ip address of your nanit camera. 
+As a note, the NANIT_RTMP_ADDR should be the local ip address of your docker environment, NOT the ip address of your nanit camera.
+
+### Separate Camera and Client Ports
+
+By default, the camera (publisher) and clients (subscribers) share the same RTMP port. To use separate ports, set `NANIT_RTMP_SUBSCRIBER_ADDR`:
+
+```bash
+docker run \
+  -d \
+  --name=nanit \
+  --restart unless-stopped \
+  -v /path/to/data:/data \
+  -e NANIT_RTMP_ADDR=xxx.xxx.xxx.xxx:1935 \
+  -e NANIT_RTMP_SUBSCRIBER_ADDR=:1936 \
+  -e NANIT_LOG_LEVEL=trace \
+  -p 1935:1935 \
+  -p 1936:1936 \
+  indiefan/nanit
+```
+
+In this setup, the camera pushes to port 1935 and Home Assistant streams from port 1936:
+
+```yaml
+camera:
+- name: Nanit
+  platform: ffmpeg
+  input: rtmp://xxx.xxx.xxx.xxx:1936/local/[your_baby_uid]
+```
+
+### Custom Listen Port (Docker Port Mapping)
+
+If your Docker port mapping uses a different external port (e.g., `-p 9001:1935`), set `NANIT_RTMP_LISTEN_ADDR` to the internal listen address and `NANIT_RTMP_ADDR` to the externally reachable address:
+
+```bash
+docker run \
+  -d \
+  --name=nanit \
+  --restart unless-stopped \
+  -v /path/to/data:/data \
+  -e NANIT_RTMP_ADDR=xxx.xxx.xxx.xxx:9001 \
+  -e NANIT_RTMP_LISTEN_ADDR=:1935 \
+  -e NANIT_LOG_LEVEL=trace \
+  -p 9001:1935 \
+  indiefan/nanit
+```
 
 ## Home Assistant
 

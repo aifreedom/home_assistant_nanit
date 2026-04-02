@@ -39,14 +39,20 @@ func main() {
 
 	if utils.EnvVarBool("NANIT_RTMP_ENABLED", true) {
 		publicAddr := utils.EnvVarReqStr("NANIT_RTMP_ADDR")
-		m := regexp.MustCompile("(:[0-9]+)$").FindStringSubmatch(publicAddr)
-		if len(m) != 2 {
-			log.Fatal().Msg("Invalid NANIT_RTMP_ADDR. Unable to parse port.")
+
+		listenAddr := utils.EnvVarStr("NANIT_RTMP_LISTEN_ADDR", "")
+		if listenAddr == "" {
+			m := regexp.MustCompile("(:[0-9]+)$").FindStringSubmatch(publicAddr)
+			if len(m) != 2 {
+				log.Fatal().Msg("Invalid NANIT_RTMP_ADDR. Unable to parse port.")
+			}
+			listenAddr = m[1]
 		}
 
 		opts.RTMP = &app.RTMPOpts{
-			ListenAddr: m[1],
-			PublicAddr: publicAddr,
+			ListenAddr:           listenAddr,
+			PublicAddr:           publicAddr,
+			SubscriberListenAddr: utils.EnvVarStr("NANIT_RTMP_SUBSCRIBER_ADDR", ""),
 		}
 	}
 

@@ -17,18 +17,32 @@ type rtmpHandler struct {
 	broadcastersByUID map[string]*broadcaster
 }
 
-// StartRTMPServer - Blocking server
-func StartRTMPServer(addr string, babyStateManager *baby.StateManager) {
+// StartRTMPServer - Blocking server.
+// If subscriberAddr is non-empty, the publisher (camera) and subscriber (client) ports are separated:
+// publisherAddr accepts only camera connections, subscriberAddr accepts only client connections.
+// If subscriberAddr is empty, both publishers and subscribers share publisherAddr.
+func StartRTMPServer(publisherAddr string, subscriberAddr string, babyStateManager *baby.StateManager) {
+	handler := newRtmpHandler(babyStateManager)
+
+	if subscriberAddr != "" {
+		go startListener(publisherAddr, "publisher", handler.handlePublisherConnection)
+		startListener(subscriberAddr, "subscriber", handler.handleSubscriberConnection)
+	} else {
+		startListener(publisherAddr, "RTMP", handler.handleConnection)
+	}
+}
+
+func startListener(addr string, label string, handleConn func(*rtmp.Conn, net.Conn)) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatal().Str("addr", addr).Err(err).Msg("Unable to start RTMP server")
+		log.Fatal().Str("addr", addr).Str("role", label).Err(err).Msg("Unable to start RTMP server")
 		panic(err)
 	}
 
-	log.Info().Str("addr", addr).Msg("RTMP server started")
+	log.Info().Str("addr", addr).Str("role", label).Msg("RTMP server started")
 
 	s := rtmp.NewServer()
-	s.HandleConn = newRtmpHandler(babyStateManager).handleConnection
+	s.HandleConn = handleConn
 
 	for {
 		nc, err := lis.Accept()
@@ -48,6 +62,24 @@ func newRtmpHandler(babyStateManager *baby.StateManager) *rtmpHandler {
 }
 
 var rtmpURLRX = regexp.MustCompile(`^/local/([a-z0-9_-]+)$`)
+
+func (s *rtmpHandler) handlePublisherConnection(c *rtmp.Conn, nc net.Conn) {
+	if !c.Publishing {
+		log.Warn().Stringer("client_addr", nc.RemoteAddr()).Msg("Subscriber rejected on publisher-only port")
+		nc.Close()
+		return
+	}
+	s.handleConnection(c, nc)
+}
+
+func (s *rtmpHandler) handleSubscriberConnection(c *rtmp.Conn, nc net.Conn) {
+	if c.Publishing {
+		log.Warn().Stringer("client_addr", nc.RemoteAddr()).Msg("Publisher rejected on subscriber-only port")
+		nc.Close()
+		return
+	}
+	s.handleConnection(c, nc)
+}
 
 func (s *rtmpHandler) handleConnection(c *rtmp.Conn, nc net.Conn) {
 	sublog := log.With().Stringer("client_addr", nc.RemoteAddr()).Logger()
